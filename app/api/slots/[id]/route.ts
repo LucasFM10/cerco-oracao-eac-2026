@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { redis } from '@/lib/redis';
 import { NextResponse } from 'next/server';
 
 export async function PATCH(
@@ -9,18 +9,19 @@ export async function PATCH(
     const id = params.id;
     const body = await request.json();
 
-    const existing = await kv.get(`slot:${id}`) as any;
-    if (!existing) {
+    const existingStr = await redis.get(`slot:${id}`);
+    if (!existingStr) {
       return NextResponse.json({ error: 'Slot not found' }, { status: 404 });
     }
 
+    const existing = JSON.parse(existingStr);
     const updatedData = {
       ...existing,
       ...body,
       ocupado: body.ocupado ?? existing.ocupado,
     };
 
-    await kv.set(`slot:${id}`, updatedData);
+    await redis.set(`slot:${id}`, JSON.stringify(updatedData));
 
     return NextResponse.json({ success: true, data: updatedData });
   } catch (error) {
@@ -36,8 +37,8 @@ export async function DELETE(
   try {
     const id = params.id;
     
-    // "Liberar" means clearing data and setting ocupado to false
-    await kv.del(`slot:${id}`);
+    // "Liberar" means clearing data
+    await redis.del(`slot:${id}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
